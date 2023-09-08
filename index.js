@@ -6,33 +6,36 @@ const app = express();
 
 app.use(bodyParser.json());
 
-// Define the conversion endpoint
-app.post("/convert", async (req, res) => {
-  const toConvert = req.body.toConvert;
-
+app.post('/convert', async (req, res) => {
   try {
-    const conversions = await Promise.all(
-      toConvert.map(async (conversion) => {
-        const { amount, from, to } = conversion;
-        const exchangeValues = await Promise.all(
-          to.map(async (target) => {
-            const response = await axios.get(
-              `https://cdn.jsdelivr.net/gh/fawazahmed0/currency-api@1/latest/currencies/${from}/${target}.json`
-            );
-            const value = response.data[target];
-            return { to: target, value };
-          })
-        );
+      const { toConvert } = req.body
+      let conversions = []
+      for (let t of toConvert) {
+          let obj = {}
 
-        return { amount, from, exchangeValues };
-      })
-    );
+          let { amount, from, to } = t
+          obj.amount = amount
+          obj.from = from
+          obj.exchangeValues = []
 
-    res.json({ conversions });
+          for (let o of to) {
+              const url = `https://cdn.jsdelivr.net/gh/fawazahmed0/currency-api@1/latest/currencies/${from.toLowerCase()}/${o.toLowerCase()}.json`
+              const response = await axios.get(url)
+              const rate = response.data[o.toLowerCase()]
+              obj.exchangeValues.push({
+                  to: o.toLowerCase(),
+                  value: amount * rate,
+              })
+          }
+          conversions.push(obj)
+      }
+      return res.json({ conversions })
   } catch (error) {
-    res.status(500).json({ error: "Internal Server Error" });
+      res.status(500).json({ error: error.message })
   }
-});
+})
+
+
 
 const PORT = process.env.PORT || 7850;
 app.listen(PORT, () => {
